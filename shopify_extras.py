@@ -4,7 +4,7 @@ import time
 import logging
 
 def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
-    """Load inventory levels via inventoryItems connection (Shopify 2024+ schema)."""
+    """Temporary debug version – logs Shopify's raw GraphQL response so we can inspect it."""
     import requests, time, logging
 
     try:
@@ -17,6 +17,7 @@ def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
         gql_url = f"https://{shop_url.strip('https://').strip('http://').strip('/')}/admin/api/2024-01/graphql.json"
         headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
 
+        # Query: minimal, valid for testing; we’ll adjust once we see what’s returned
         query = """
         query GetInventoryItems($first: Int!, $after: String) {
           inventoryItems(first: $first, after: $after) {
@@ -28,12 +29,12 @@ def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
                 tracked
                 createdAt
                 updatedAt
-                inventoryLevels(first: 10) {
+                inventoryLevels(first: 5) {
                   edges {
                     node {
                       id
                       location { id name }
-                      quantities(names:["available","on_hand","incoming","committed"]) {
+                      quantities(names:["available","on_hand"]) {
                         name
                         quantity
                       }
@@ -54,50 +55,61 @@ def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
             total_levels = 0
 
             while True:
-                resp = requests.post(
-                    gql_url,
-                    headers=headers,
-                    json={"query": query, "variables": {"first": 100, "after": after}},
-                    timeout=60,
-                )
-                resp.raise_for_status()
-                data = resp.json().get("data", {}).get("inventoryItems")
-                if not data:
-                    logging.warning("⚠️ No inventoryItems data returned; stopping.")
+                try:
+                    r = requests.post(
+                        gql_url,
+                        headers=headers,
+                        json={"query": query, "variables": {"first": 5, "after": after}},
+                        timeout=60,
+                    )
+                    r.raise_for_status()
+                except Exception as net_err:
+                    logging.error(f"❌ Network or HTTP error: {net_err}", exc_info=True)
                     break
 
-                edges = data.get("edges", [])
+                try:
+                    j = r.json()
+                except Exception as parse_err:
+                    logging.error(f"❌ Could not parse JSON: {parse_err}")
+                    logging.error(f"Raw text: {r.text[:1000]}")
+                    break
+
+                # 🔍 NEW: log exactly what Shopify returned
+                logging.debug(f"🔍 Raw response sample: {str(j)[:1000]}")
+
+                if "errors" in j:
+                    logging.error(f"❌ Shopify GraphQL errors: {j['errors']}")
+                    break
+
+                data = (j.get("data") or {}).get("inventoryItems")
+                if not data:
+                    logging.warning("⚠️ No 'inventoryItems' key in response; stopping.")
+                    break
+
+                edges = data.get("edges") or []
                 if not edges:
                     logging.info("✅ No more inventoryItems.")
                     break
 
                 for edge in edges:
-                    node = edge.get("node")
-                    if not node:
-                        continue
-
+                    node = edge.get("node") or {}
                     total_items += 1
                     sku = node.get("sku")
-                    levels = (
-                        node.get("inventoryLevels", {}).get("edges", [])
-                        if node.get("inventoryLevels")
-                        else []
-                    )
+                    levels = ((node.get("inventoryLevels") or {}).get("edges")) or []
 
                     for lvl_edge in levels:
-                        lvl_node = lvl_edge.get("node")
-                        if lvl_node:
-                            lvl_node["inventory_item_id"] = node["id"]
-                            lvl_node["sku"] = sku
-                            total_levels += 1
-                            yield lvl_node
+                        lvl_node = lvl_edge.get("node") or {}
+                        lvl_node["inventory_item_id"] = node.get("id")
+                        lvl_node["sku"] = sku
+                        total_levels += 1
+                        yield lvl_node
 
                 logging.info(
-                    f"📦 Processed {len(edges)} inventory items "
-                    f"(total {total_items}), yielded {total_levels} inventory levels"
+                    f"📦 Processed {len(edges)} items (total {total_items}), "
+                    f"yielded {total_levels} levels"
                 )
 
-                page_info = data.get("pageInfo", {})
+                page_info = data.get("pageInfo") or {}
                 if not page_info.get("hasNextPage"):
                     break
                 after = page_info.get("endCursor")
@@ -105,11 +117,11 @@ def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
 
             logging.info(f"✅ Completed inventory sync ({total_levels} levels).")
 
+        # Run the resource
         pipeline.run(inventory_levels_resource())
 
     except Exception as e:
         logging.exception(f"❌ Failed to load inventory levels: {e}")
-
 
 
 def load_pages(pipeline: dlt.Pipeline) -> None:
