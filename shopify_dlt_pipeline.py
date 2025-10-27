@@ -56,7 +56,7 @@ def load_all_resources(resources: List[str], start_date: TAnyDateTime) -> None:
 
     pipeline = dlt.pipeline(
         pipeline_name="shopify_local",
-        destination="duckdb",
+        destination="postgres",
         dataset_name="shopify_dlt_data",
     )
 
@@ -93,7 +93,7 @@ def incremental_load_with_backloading() -> None:
     """Backfill orders by weekly chunks, then switch to incremental loading."""
     pipeline = dlt.pipeline(
         pipeline_name="shopify_local",
-        destination="duckdb",
+        destination="postgres",
         dataset_name="shopify_dlt_data",
     )
 
@@ -137,7 +137,7 @@ def load_partner_api_transactions() -> None:
     """Load transactions from the Shopify Partner API."""
     pipeline = dlt.pipeline(
         pipeline_name="shopify_partner",
-        destination="duckdb",
+        destination="postgres",
         dataset_name="shopify_partner_data",
     )
 
