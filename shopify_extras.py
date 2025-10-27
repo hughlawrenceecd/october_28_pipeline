@@ -4,7 +4,7 @@ import time
 import logging
 
 def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
-    """Temporary debug version – logs Shopify's raw GraphQL response so we can inspect it."""
+    """Loads all inventory levels from each Shopify location, clean and efficient."""
     import requests, time, logging
 
     try:
@@ -17,107 +17,114 @@ def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
         gql_url = f"https://{shop_url.strip('https://').strip('http://').strip('/')}/admin/api/2024-01/graphql.json"
         headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
 
-        # Query: minimal, valid for testing; we’ll adjust once we see what’s returned
+        # Step 1️⃣ — fetch locations dynamically
+        loc_query = """
+        query {
+          locations(first: 50) {
+            edges { node { id name } }
+          }
+        }
+        """
+        loc_resp = requests.post(gql_url, headers=headers, json={"query": loc_query}, timeout=30)
+        loc_resp.raise_for_status()
+        locations = [
+            edge["node"]
+            for edge in loc_resp.json().get("data", {}).get("locations", {}).get("edges", [])
+            if edge.get("node")
+        ]
+
+        if not locations:
+            logging.warning("⚠️ No locations returned — nothing to load.")
+            return
+
+        logging.info(f"🏬 Found {len(locations)} locations: {[l['name'] for l in locations]}")
+
+        # Step 2️⃣ — define query for inventory levels
         query = """
-        query GetInventoryItems($first: Int!, $after: String) {
-          inventoryItems(first: $first, after: $after) {
-            edges {
-              cursor
-              node {
-                id
-                sku
-                tracked
-                createdAt
-                updatedAt
-                inventoryLevels(first: 5) {
-                  edges {
-                    node {
-                      id
-                      location { id name }
-                      quantities(names:["available","on_hand"]) {
-                        name
-                        quantity
-                      }
-                    }
+        query GetInventoryLevels($locationId: ID!, $first: Int!, $after: String) {
+          location(id: $locationId) {
+            inventoryLevels(first: $first, after: $after) {
+              edges {
+                node {
+                  id
+                  createdAt
+                  updatedAt
+                  item {
+                    id
+                    sku
+                    tracked
+                    product { id title handle }
+                  }
+                  quantities(names: ["available", "incoming", "committed", "on_hand"]) {
+                    name
+                    quantity
                   }
                 }
               }
+              pageInfo { hasNextPage endCursor }
             }
-            pageInfo { hasNextPage endCursor }
           }
         }
         """
 
         @dlt.resource(write_disposition="replace", name="inventory_levels")
         def inventory_levels_resource():
-            after = None
-            total_items = 0
-            total_levels = 0
+            total_records = 0
 
-            while True:
-                try:
-                    r = requests.post(
+            for loc in locations:
+                loc_id = loc["id"]
+                loc_name = loc["name"]
+                logging.info(f"🏗️ Loading inventory for location: {loc_name}")
+
+                after = None
+                has_next = True
+                loc_count = 0
+
+                while has_next:
+                    resp = requests.post(
                         gql_url,
                         headers=headers,
-                        json={"query": query, "variables": {"first": 5, "after": after}},
+                        json={"query": query, "variables": {"locationId": loc_id, "first": 100, "after": after}},
                         timeout=60,
                     )
-                    r.raise_for_status()
-                except Exception as net_err:
-                    logging.error(f"❌ Network or HTTP error: {net_err}", exc_info=True)
-                    break
+                    resp.raise_for_status()
+                    data = resp.json()
+                    location = (data.get("data") or {}).get("location")
 
-                try:
-                    j = r.json()
-                except Exception as parse_err:
-                    logging.error(f"❌ Could not parse JSON: {parse_err}")
-                    logging.error(f"Raw text: {r.text[:1000]}")
-                    break
+                    if not location:
+                        logging.warning(f"⚠️ Location {loc_name} returned null, skipping.")
+                        break
 
-                # 🔍 NEW: log exactly what Shopify returned
-                logging.debug(f"🔍 Raw response sample: {str(j)[:1000]}")
+                    inv_data = location.get("inventoryLevels") or {}
+                    edges = inv_data.get("edges") or []
+                    if not edges:
+                        break
 
-                if "errors" in j:
-                    logging.error(f"❌ Shopify GraphQL errors: {j['errors']}")
-                    break
+                    batch = []
+                    for edge in edges:
+                        node = edge.get("node") or {}
+                        node["location_id"] = loc_id
+                        node["location_name"] = loc_name
+                        batch.append(node)
 
-                data = (j.get("data") or {}).get("inventoryItems")
-                if not data:
-                    logging.warning("⚠️ No 'inventoryItems' key in response; stopping.")
-                    break
+                    if batch:
+                        total_records += len(batch)
+                        loc_count += len(batch)
+                        yield from batch
 
-                edges = data.get("edges") or []
-                if not edges:
-                    logging.info("✅ No more inventoryItems.")
-                    break
+                        # Log only occasionally to avoid spam
+                        if loc_count % 500 == 0:
+                            logging.info(f"📦 {loc_name}: {loc_count} items so far...")
 
-                for edge in edges:
-                    node = edge.get("node") or {}
-                    total_items += 1
-                    sku = node.get("sku")
-                    levels = ((node.get("inventoryLevels") or {}).get("edges")) or []
+                    page = inv_data.get("pageInfo") or {}
+                    has_next = page.get("hasNextPage", False)
+                    after = page.get("endCursor")
+                    time.sleep(0.3)
 
-                    for lvl_edge in levels:
-                        lvl_node = lvl_edge.get("node") or {}
-                        lvl_node["inventory_item_id"] = node.get("id")
-                        lvl_node["sku"] = sku
-                        total_levels += 1
-                        yield lvl_node
+                logging.info(f"✅ Completed {loc_name}: {loc_count} total items.")
 
-                logging.info(
-                    f"📦 Processed {len(edges)} items (total {total_items}), "
-                    f"yielded {total_levels} levels"
-                )
+            logging.info(f"✅ Finished all locations. Total inventory levels: {total_records}")
 
-                page_info = data.get("pageInfo") or {}
-                if not page_info.get("hasNextPage"):
-                    break
-                after = page_info.get("endCursor")
-                time.sleep(0.5)
-
-            logging.info(f"✅ Completed inventory sync ({total_levels} levels).")
-
-        # Run the resource
         pipeline.run(inventory_levels_resource())
 
     except Exception as e:
