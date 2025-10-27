@@ -73,7 +73,7 @@ def load_all_resources(resources: List[str], start_date: TAnyDateTime) -> None:
         run_loader("pages", load_pages, pipeline)
         run_loader("pages_metafields", load_pages_metafields, pipeline)
         run_loader("collections_metafields", load_collections_metafields, pipeline)
-        run_loader("products_metafields", load_products_metafields, pipeline)
+        # run_loader("products_metafields", load_products_metafields, pipeline)
         run_loader("blogs", load_blogs, pipeline)
         run_loader("articles", load_articles, pipeline)
         run_loader("inventory_levels_gql", load_inventory_levels_gql, pipeline)
