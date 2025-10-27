@@ -1,0 +1,7 @@
+dlt[duckdb]>=0.5.1
+dlt[postgres]>=0.5.1
+pendulum>=2.1
+cron-descriptor==1.4.5
+dlt==1.14.1
+pipdeptree==2.9.6
+psycopg2-binary==2.9.10
