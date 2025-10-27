@@ -1,0 +1,39 @@
+name: Run shopify pipeline from shopify_dlt_pipeline.py - Update
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+env:
+  DESTINATION__POSTGRES__CREDENTIALS__DATABASE: shopify_db_test_october_27
+  DESTINATION__POSTGRES__CREDENTIALS__USERNAME: doadmin
+  DESTINATION__POSTGRES__CREDENTIALS__HOST: ecd-data-warehouse-do-user-23910252-0.h.db.ondigitalocean.com
+  DESTINATION__POSTGRES__CREDENTIALS__PORT: "25060"
+  SOURCES__SHOPIFY_DLT__PRIVATE_APP_PASSWORD: ${{ secrets.SOURCES__SHOPIFY_DLT__PRIVATE_APP_PASSWORD }}
+  DESTINATION__POSTGRES__CREDENTIALS__PASSWORD: ${{ secrets.DESTINATION__POSTGRES__CREDENTIALS__PASSWORD }}
+  SOURCES__SHOPIFY_DLT__SHOP_URL: "https://ffg85b-yg.myshopify.com"
+
+jobs:
+  run_pipeline:
+    runs-on: [self-hosted, Linux, X64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install python3.13-venv (if missing)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3.13-venv
+
+      - name: Set up Python venv and install dependencies
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run DLT pipeline
+        run: |
+          source venv/bin/activate
+          python shopify_dlt_pipeline.py
