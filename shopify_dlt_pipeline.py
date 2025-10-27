@@ -112,7 +112,7 @@ def incremental_load_with_backloading() -> None:
         logger.info(f"Chunk {idx}/{len(ranges)}: {start_date} → {end_date}")
         data = shopify_source(
             start_date=start_date, end_date=end_date, created_at_min=min_start_date
-        ).with_resources("orders")
+        ).with_resources("customers")
 
         try:
             load_info = pipeline.run(data)
