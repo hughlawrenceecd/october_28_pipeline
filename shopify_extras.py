@@ -4,88 +4,112 @@ import time
 import logging
 
 def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
-    """Robust inventoryLevels loader that never subscripts None."""
+    """Load inventory levels via inventoryItems connection (Shopify 2024+ schema)."""
     import requests, time, logging
 
-    shop_url = dlt.config.get("sources.shopify_dlt.shop_url")
-    access_token = dlt.config.get("sources.shopify_dlt.private_app_password")
-    if not shop_url or not access_token:
-        logging.warning("⚠️ Missing Shopify credentials.")
-        return
+    try:
+        shop_url = dlt.config.get("sources.shopify_dlt.shop_url")
+        access_token = dlt.config.get("sources.shopify_dlt.private_app_password")
+        if not shop_url or not access_token:
+            logging.warning("⚠️ Missing Shopify credentials; skipping inventory_levels_gql.")
+            return
 
-    gql_url = f"https://{shop_url.strip('https://').strip('http://').strip('/')}/admin/api/2024-01/graphql.json"
-    headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
+        gql_url = f"https://{shop_url.strip('https://').strip('http://').strip('/')}/admin/api/2024-01/graphql.json"
+        headers = {"X-Shopify-Access-Token": access_token, "Content-Type": "application/json"}
 
-    query = """
-    query GetInventoryLevels($first: Int!, $after: String) {
-      inventoryLevels(first: $first, after: $after) {
-        edges {
-          cursor
-          node {
-            id
-            createdAt
-            updatedAt
-            item { id sku tracked }
-            location { id name }
-            quantities(names:["available","on_hand","incoming","committed"]) {
-              name
-              quantity
+        query = """
+        query GetInventoryItems($first: Int!, $after: String) {
+          inventoryItems(first: $first, after: $after) {
+            edges {
+              cursor
+              node {
+                id
+                sku
+                tracked
+                createdAt
+                updatedAt
+                inventoryLevels(first: 10) {
+                  edges {
+                    node {
+                      id
+                      location { id name }
+                      quantities(names:["available","on_hand","incoming","committed"]) {
+                        name
+                        quantity
+                      }
+                    }
+                  }
+                }
+              }
             }
+            pageInfo { hasNextPage endCursor }
           }
         }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-    """
+        """
 
-    @dlt.resource(write_disposition="replace", name="inventory_levels")
-    def inventory_levels_resource():
-        after = None
-        total = 0
-        while True:
-            try:
-                r = requests.post(
+        @dlt.resource(write_disposition="replace", name="inventory_levels")
+        def inventory_levels_resource():
+            after = None
+            total_items = 0
+            total_levels = 0
+
+            while True:
+                resp = requests.post(
                     gql_url,
                     headers=headers,
                     json={"query": query, "variables": {"first": 100, "after": after}},
                     timeout=60,
                 )
-                r.raise_for_status()
-                j = r.json()
-            except Exception as net_err:
-                logging.warning(f"⚠️ Network error: {net_err}; stopping.")
-                break
+                resp.raise_for_status()
+                data = resp.json().get("data", {}).get("inventoryItems")
+                if not data:
+                    logging.warning("⚠️ No inventoryItems data returned; stopping.")
+                    break
 
-            inv_data = (j.get("data") or {}).get("inventoryLevels")
-            if not inv_data:
-                logging.warning("⚠️ Response contained no 'inventoryLevels'; stopping.")
-                break
+                edges = data.get("edges", [])
+                if not edges:
+                    logging.info("✅ No more inventoryItems.")
+                    break
 
-            edges = inv_data.get("edges") or []
-            if not edges:
-                logging.info("✅ No more edges; finished inventory stream.")
-                break
+                for edge in edges:
+                    node = edge.get("node")
+                    if not node:
+                        continue
 
-            for e in edges:
-                node = (e or {}).get("node")
-                if node:
-                    total += 1
-                    yield node
+                    total_items += 1
+                    sku = node.get("sku")
+                    levels = (
+                        node.get("inventoryLevels", {}).get("edges", [])
+                        if node.get("inventoryLevels")
+                        else []
+                    )
 
-            logging.info(f"📦 Streamed {len(edges)} records (total {total})")
+                    for lvl_edge in levels:
+                        lvl_node = lvl_edge.get("node")
+                        if lvl_node:
+                            lvl_node["inventory_item_id"] = node["id"]
+                            lvl_node["sku"] = sku
+                            total_levels += 1
+                            yield lvl_node
 
-            page = inv_data.get("pageInfo") or {}
-            if not page.get("hasNextPage"):
-                break
-            after = page.get("endCursor")
-            time.sleep(0.5)
+                logging.info(
+                    f"📦 Processed {len(edges)} inventory items "
+                    f"(total {total_items}), yielded {total_levels} inventory levels"
+                )
 
-        logging.info(f"✅ Completed inventory stream ({total} records).")
+                page_info = data.get("pageInfo", {})
+                if not page_info.get("hasNextPage"):
+                    break
+                after = page_info.get("endCursor")
+                time.sleep(0.5)
 
-    try:
+            logging.info(f"✅ Completed inventory sync ({total_levels} levels).")
+
         pipeline.run(inventory_levels_resource())
+
     except Exception as e:
-        logging.exception(f"❌ Failed to load inventory levels via DLT: {e}")
+        logging.exception(f"❌ Failed to load inventory levels: {e}")
+
 
 
 def load_pages(pipeline: dlt.Pipeline) -> None:
