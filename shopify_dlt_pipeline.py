@@ -90,7 +90,7 @@ def load_all_resources(resources: List[str], start_date: TAnyDateTime) -> None:
 # OPTIONAL BACKLOADING
 # --------------------------
 def incremental_load_with_backloading() -> None:
-    """Backfill orders by weekly chunks, then switch to incremental loading."""
+    """Backfill by weekly chunks, including pages/blogs/metafields, then switch to incremental loading."""
     pipeline = dlt.pipeline(
         pipeline_name="shopify_local",
         destination="postgres",
@@ -109,26 +109,40 @@ def incremental_load_with_backloading() -> None:
     logger.info(f"Starting backfill with {len(ranges)} weekly chunks")
 
     for idx, (start_date, end_date) in enumerate(ranges, start=1):
-        logger.info(f"Chunk {idx}/{len(ranges)}: {start_date} → {end_date}")
+        logger.info(f"🧩 Chunk {idx}/{len(ranges)}: {start_date} → {end_date}")
+
+        # Core Shopify load
         data = shopify_source(
             start_date=start_date, end_date=end_date, created_at_min=min_start_date
-        ).with_resources("customers")
+        ).with_resources("orders", "customers", "products")
 
         try:
             load_info = pipeline.run(data)
-            logger.info(f"✅ Chunk {idx} completed: {load_info}")
+            logger.info(f"✅ Core chunk {idx} complete: {load_info}")
+
+            # Include supplemental loaders per chunk
+            run_loader("pages", load_pages, pipeline)
+            run_loader("pages_metafields", load_pages_metafields, pipeline)
+            run_loader("collections_metafields", load_collections_metafields, pipeline)
+            # run_loader("products_metafields", load_products_metafields, pipeline)
+            run_loader("blogs", load_blogs, pipeline)
+            run_loader("articles", load_articles, pipeline)
+            run_loader("inventory_levels_gql", load_inventory_levels_gql, pipeline)
+
+            logger.info(f"✅ Supplemental loaders complete for chunk {idx}")
+
         except Exception:
             logger.exception(f"❌ Failed on chunk {idx} ({start_date} → {end_date})")
             break
 
+    # After all chunks, run final incremental sync
     logger.info("🔄 Switching to incremental load from latest backfill point...")
     load_info = pipeline.run(
         shopify_source(
             start_date=max_end_date, created_at_min=min_start_date
-        ).with_resources("orders")
+        ).with_resources("orders", "customers", "products")
     )
     logger.info(f"✅ Incremental load complete: {load_info}")
-
 
 # --------------------------
 # PARTNER API
@@ -163,6 +177,6 @@ def load_partner_api_transactions() -> None:
 # --------------------------
 if __name__ == "__main__":
     resources = ["products", "orders", "customers"]
-    load_all_resources(resources, start_date="2025-10-10")
-    # incremental_load_with_backloading()
+    # load_all_resources(resources, start_date="2025-10-10")
+    incremental_load_with_backloading()
     # load_partner_api_transactions()
