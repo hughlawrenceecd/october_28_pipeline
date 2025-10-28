@@ -93,12 +93,13 @@ uv pip install -r requirements.txt
    - `read_inventory`
    - `read_locations`
    - `read_metaobjects`
+   - `read_metaobjct_definitions`
 6. Click **Save** → **Install app → Confirm**.
 7. Click **Reveal token** and **copy** the Admin API token (you’ll only see it once).
 
 ---
 
-### Create a Partner API token (optional)
+### Create a Partner API token (if using locally)
 
 1. Log in to [Shopify Partners](https://partners.shopify.com).
 2. Go to **Settings ⚙️ → Partner API client → Manage Partner API clients**.
@@ -107,7 +108,7 @@ uv pip install -r requirements.txt
 
 ---
 
-## 5. Configure DLT credentials
+## 5. Configure DLT credentials (if using locally)
 
 Inside your project directory, locate or create a `.dlt/` folder with two files:
 
