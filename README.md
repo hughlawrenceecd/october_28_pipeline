@@ -73,7 +73,7 @@ Install the latest version of **dlt** and all project dependencies:
 
 ```bash
 uv pip install -U dlt
-pip install -r requirements.txt
+uv pip install -r requirements.txt
 ```
 
 ---
