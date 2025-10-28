@@ -56,7 +56,7 @@ pip install uv
 
 ---
 
-## 2. Set up your virtual environment
+## 2. Set up your virtual environment (if using locally)
 
 Create and activate a clean, isolated Python environment:
 
@@ -67,7 +67,7 @@ source .venv/bin/activate
 
 ---
 
-## 3. Install DLT and project dependencies
+## 3. Install DLT and project dependencies (if using locally)
 
 Install the latest version of **dlt** and all project dependencies:
 
