@@ -8,8 +8,6 @@ It also covers **automated runs via GitHub Actions** and **DigitalOcean self-hos
 ---
 # How it works
 
-<img width="567" height="568" alt="Shopify-to-postgres drawio (3)" src="https://github.com/user-attachments/assets/b3adc2e7-379b-490b-894c-c84552523335" />
-
 The pipeline has 2 main components:
 
 ## 1. Data transfer
