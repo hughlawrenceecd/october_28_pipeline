@@ -246,7 +246,7 @@ on:
   workflow_dispatch:        # Allow manual runs
 
 env:
-  DESTINATION__POSTGRES__CREDENTIALS__DATABASE: shopify_dlt_data
+  DESTINATION__POSTGRES__CREDENTIALS__DATABASE: database name
   DESTINATION__POSTGRES__CREDENTIALS__USERNAME: doadmin
   DESTINATION__POSTGRES__CREDENTIALS__HOST: your-db-host.ondigitalocean.com
   DESTINATION__POSTGRES__CREDENTIALS__PORT: "25060"
