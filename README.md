@@ -294,7 +294,7 @@ jobs:
 
 The pipeline script contains **two functions** for different stages of data loading.
 
-### 🕓 `incremental_load_with_backloading()`
+### `incremental_load_with_backloading()`
 **Use this first.**  
 This function performs a *historical backfill* of your data in weekly chunks (e.g. orders, customers, products), then switches to incremental updates.
 
