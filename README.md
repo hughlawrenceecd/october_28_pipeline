@@ -231,7 +231,7 @@ nc -zv your-db-host.ondigitalocean.com 25060
 
 ---
 
-## ⚡ 10. GitHub Actions Workflow (Cron Job)
+## 10. GitHub Actions Workflow (Cron Job)
 
 This workflow runs your pipeline on a schedule using your self-hosted runner.
 
