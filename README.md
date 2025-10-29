@@ -300,6 +300,10 @@ nc -zv your-db-host.ondigitalocean.com 25060
 ## 10. GitHub Actions Workflow (Cron Job)
 
 This workflow runs your pipeline on a schedule using your self-hosted runner.
+Ensure the DESTINATION__POSTGRES credentials match the credentials in your database, found in this area:
+
+<img width="640" height="424" alt="Screenshot 2025-10-29 at 09 58 51" src="https://github.com/user-attachments/assets/1e04867f-92c4-4767-a1b5-2a2206be387d" />
+
 
 Create a file at `.github/workflows/shopify_pipeline.yml`:
 
