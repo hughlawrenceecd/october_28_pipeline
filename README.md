@@ -272,11 +272,11 @@ Save and exit (`Ctrl + X`)
 
 ### 8.4 Install Github Actions Runner
 
-1. In your GitHub repo, go to  
-   **Settings → Actions → Runners → New self-hosted runner**.
-2. Choose **Linux** and follow the displayed commands **until you get to the `./run.sh` command**
-3. **Do not run `./run.sh` command! This takes over the console and means you can't run a systems check, or change users in the droplet without stopping the runner.**
-4. Instead, proceed to the step below
+1. In your GitHub repo, go to **Settings → Actions → Runners → New self-hosted runner**.
+2. Click enter during the config stage with the github runner to select the default optinos for labels, folder placement etc.
+3. Choose **Linux** and follow the displayed commands **until you get to the `./run.sh` command**
+4. **Do not run `./run.sh` command! This takes over the console and means you can't run a systems check, or change users in the droplet without stopping the runner.**
+5. Instead, proceed to the step below
 
 ---
 
