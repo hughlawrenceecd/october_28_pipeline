@@ -21,7 +21,7 @@ def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
             "Content-Type": "application/json",
         }
 
-        # ✅ Step 1 — Get the one and only location dynamically
+        # Step 1 — Get the one and only location dynamically
         loc_query = """
         query {
           locations(first: 1) {
@@ -48,7 +48,7 @@ def load_inventory_levels_gql(pipeline: dlt.Pipeline) -> None:
         head_office_name = head_office["name"]
         logging.info(f"🏬 Using location: {head_office_name} ({head_office_gid})")
 
-        # ✅ Step 2 — Query inventory levels for that location
+        # Step 2 — Query inventory levels for that location
         query = """
         query GetInventoryLevels($locationId: ID!, $first: Int!, $after: String) {
           location(id: $locationId) {
@@ -410,8 +410,6 @@ def load_products_metafields(pipeline: dlt.Pipeline) -> None:
                 next_url = link_header.split(";")[0].strip("<>")
             products_url = next_url
 
-            logging.info(f"🧩 Fetched {len(data)} products (page {total_pages}, total IDs: {len(product_ids)})")
-
         if not product_ids:
             logging.warning("⚠️ No products found; skipping metafield load.")
             return
@@ -436,15 +434,6 @@ def load_products_metafields(pipeline: dlt.Pipeline) -> None:
                         mf["product_id"] = product_id
                         total_metafields += 1
                         yield mf
-
-                    # Periodic progress logs
-                    if i % 25 == 0:
-                        elapsed = round(time.time() - last_log_time, 1)
-                        logging.info(
-                            f"⏳ Processed {i}/{total_products} products "
-                            f"({elapsed}s since last update, {total_metafields} metafields total)"
-                        )
-                        last_log_time = time.time()
 
                 except requests.exceptions.RequestException as re:
                     logging.warning(f"⚠️ Request error for product {product_id}: {re}")
