@@ -199,6 +199,7 @@ sudo visudo
 Add this line:
 ```
 new_user ALL=(ALL) NOPASSWD:ALL
+new_user ALL=(ALL) NOPASSWD: /usr/bin/apt-get
 ```
 
 Save and exit (`Ctrl + X`).
