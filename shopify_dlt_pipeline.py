@@ -16,9 +16,8 @@ from shopify_extras import (
     load_products_metafields,
 )
 
-# --------------------------
-# LOGGING CONFIG
-# --------------------------
+# Logging config, DLT by default doesn't provide much in the way of logging.
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
@@ -28,11 +27,9 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# --------------------------
-# HELPERS
-# --------------------------
+# Helper to run a loader function and log timing
+
 def run_loader(name, fn, pipeline):
-    """Helper to run a loader function and log timing."""
     logger.info(f"➡️ Starting loader: {name}")
     start = time.time()
     try:
@@ -46,13 +43,11 @@ def run_loader(name, fn, pipeline):
         return None
 
 
-# --------------------------
-# CORE PIPELINE LOGIC
-# --------------------------
+# Core pipeline logic
 def load_all_resources(resources: List[str], start_date: TAnyDateTime) -> None:
-    logger.info("🚀 Starting load_all_resources")
-    logger.info(f"📦 Resources requested: {resources}")
-    logger.info(f"⏳ Start date: {start_date}")
+    logger.info("Starting load_all_resources")
+    logger.info(f"Resources requested: {resources}")
+    logger.info(f"Start date: {start_date}")
 
     pipeline = dlt.pipeline(
         pipeline_name="shopify_local",
@@ -61,13 +56,13 @@ def load_all_resources(resources: List[str], start_date: TAnyDateTime) -> None:
     )
 
     try:
-        logger.info("🔌 Initializing Shopify source...")
+        logger.info("Initializing Shopify source...")
         source = shopify_source(start_date=start_date).with_resources(*resources)
 
         # Core Shopify load (orders, products, customers, etc.)
         load_info = pipeline.run(source)
         logger.info("✅ Core pipeline run complete.")
-        logger.info(f"📊 Load info summary:\n{load_info}")
+        logger.info(f"Load info summary:\n{load_info}")
 
         # Run extra loaders
         run_loader("pages", load_pages, pipeline)
@@ -79,18 +74,16 @@ def load_all_resources(resources: List[str], start_date: TAnyDateTime) -> None:
         run_loader("inventory_levels_gql", load_inventory_levels_gql, pipeline)
 
         logger.info("✅ All custom Shopify resources loaded successfully.")
-        logger.info("📁 Data stored in: shopify.duckdb")
+        logger.info("Data stored in: shopify.duckdb")
 
     except Exception:
         logger.exception("❌ Pipeline failed with error")
         raise
 
 
-# --------------------------
-# OPTIONAL BACKLOADING
-# --------------------------
+# Backloading function, this backfills the data in weekly chunks
+
 def incremental_load_with_backloading() -> None:
-    """Backfill by weekly chunks, including pages/blogs/metafields, then switch to incremental loading."""
     pipeline = dlt.pipeline(
         pipeline_name="shopify_local",
         destination="postgres",
@@ -136,7 +129,7 @@ def incremental_load_with_backloading() -> None:
             break
 
     # After all chunks, run final incremental sync
-    logger.info("🔄 Switching to incremental load from latest backfill point...")
+    logger.info("Switching to incremental load from latest backfill point...")
     load_info = pipeline.run(
         shopify_source(
             start_date=max_end_date, created_at_min=min_start_date
@@ -144,9 +137,9 @@ def incremental_load_with_backloading() -> None:
     )
     logger.info(f"✅ Incremental load complete: {load_info}")
 
-# --------------------------
-# PARTNER API
-# --------------------------
+
+# Partner API, this is added by DLT by default to the pipeline logic. Currently unused but worth keeping in the file for future reference
+
 def load_partner_api_transactions() -> None:
     """Load transactions from the Shopify Partner API."""
     pipeline = dlt.pipeline(
@@ -172,9 +165,8 @@ def load_partner_api_transactions() -> None:
     print(load_info)
 
 
-# --------------------------
-# ENTRY POINT
-# --------------------------
+# Initialisation of functions
+
 if __name__ == "__main__":
     resources = ["products", "orders", "customers"]
     # load_all_resources(resources, start_date="2025-10-10")
