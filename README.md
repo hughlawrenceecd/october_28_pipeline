@@ -94,7 +94,9 @@ uv pip install -r requirements.txt
    - `read_locations`
    - `read_metaobjects`
    - `read_metaobjct_definitions`
+   - `read_product_listings`
    - `read_content`
+  
 6. Click **Save** → **Install app → Confirm**.
 7. Click **Reveal token** and **copy** the Admin API token (you’ll only see it once).
 
