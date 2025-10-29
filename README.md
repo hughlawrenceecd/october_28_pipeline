@@ -94,6 +94,7 @@ uv pip install -r requirements.txt
    - `read_locations`
    - `read_metaobjects`
    - `read_metaobjct_definitions`
+   - `read_content`
 6. Click **Save** → **Install app → Confirm**.
 7. Click **Reveal token** and **copy** the Admin API token (you’ll only see it once).
 
@@ -159,6 +160,16 @@ Navigate to your repo →
 
 These secrets are injected into your workflow YAML file for cron-based automation.
 
+**Add these same credentials to the environment secrets too.** Go to 
+**Settings → Secrets and Variables → Actions → Manage envornment secrets → Create and name your new envornment**
+
+Add the same secrets
+
+| Secret name | Description |
+|--------------|-------------|
+| `SOURCES__SHOPIFY_DLT__PRIVATE_APP_PASSWORD` | Shopify Admin API token |
+| `DESTINATION__POSTGRES__CREDENTIALS__PASSWORD` | DigitalOcean PostgreSQL password |
+
 ---
 
 ## 7. DigitalOcean Droplet Setup
@@ -192,32 +203,83 @@ Save and exit (`Ctrl + X`).
 
 ---
 
-### 8. Install a GitHub Actions Runner
+## 8. Digital Ocean Droplet Setup
+
+---
+
+### 8.1 Install Python and Pip on droplet
+
+Before creating any users or configuraing the runner, ensure the droplet has root level Python and Pip installed
+
+
+```bash
+sudo apt update
+sudo apt install python3
+sudo apt install python3-pip
+```
+
+You can verify installation with:
+
+```bash
+python3 --version
+pip3 --version
+```
+---
+
+### 8.2 Add droplet as a trusted source for the database
+
+To allow the new dorplet to connect to the database it must be addeda as a trsuted source
+
+1. Login to digitalOcean
+2. Navigate to **Database -> PostgreSQL Cluser**
+3. Under **Network Access -> Trusted Sources**, click **Add Trusted Sources**
+4. Choose the droplet you created earlier (or manually add it's IP Address)
+5. Save changes
+
+---
+
+### 8.3 Create and Configure a new user
+
+Inside your droplet:
+
+```bash
+# Create a new user
+adduser new_user
+
+# Add to sudo group
+usermod -aG sudo new_user
+
+# Switch to the new user
+su - new_user
+
+# Allow passwordless sudo
+sudo visudo
+```
+
+Add these lines **at the bottom** of the file:
+
+```
+new_user ALL=(ALL) NOPASSWD:ALL
+new_user ALL=(ALL) NOPASSWD:/usr/bin/apt-get
+```
+
+Save and exit (`Ctrl + X`)
+
+---
+
+### 8.4 Install Github Actions Runner
 
 1. In your GitHub repo, go to  
    **Settings → Actions → Runners → New self-hosted runner**.
-2. Choose **Linux** and follow the displayed commands.
-
-Example:
-
-```bash
-# Create a folder
-mkdir actions-runner && cd actions-runner
-
-# Download runner package
-curl -o actions-runner-linux-x64-2.327.1.tar.gz -L https://github.com/actions/runner/releases/download/v2.327.1/actions-runner-linux-x64-2.327.1.tar.gz
-
-# Extract
-tar xzf ./actions-runner-linux-x64-2.327.1.tar.gz
-```
+2. Choose **Linux** and follow the displayed commands **until you get to the `./run.sh` command**
+3. **Do not run `./run.sh` command! This takes over the console and means you can't run a systems check, or change users in the droplet without stopping the runner.**
+4. Instead, proceed to the step below
 
 ---
 
 ### 9. Configure and start the runner
 
 ```bash
-# Configure (replace values)
-$ ./config.sh --url https://github.com/username/repo --token yourTokenHere
 
 # Install and start as a service
 sudo ./svc.sh install
