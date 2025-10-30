@@ -219,6 +219,9 @@ Before creating any users or configuraing the runner, ensure the droplet has roo
 sudo apt update
 sudo apt install python3
 sudo apt install python3-pip
+sudo apt install python3-venv
+sudo add-apt-repository ppa:deadsnakes/ppa -y
+
 ```
 
 You can verify installation with:
