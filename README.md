@@ -1,4 +1,4 @@
-<p align="center">
+ <p align="center">
   <img src="https://capsule-render.vercel.app/api?text=Shopify%20Data%20Pipeline&animation=fadeIn&type=waving&color=gradient&height=100"/>
 </p>
 
@@ -27,7 +27,7 @@ The pipeline has 2 main components:
 
 ---
 
-## 1. Prerequisites
+## 1. Prerequisites (if running locally)
 
 ### Python environment
 
@@ -148,7 +148,62 @@ organization_id = "1234567"
 
 ---
 
-## 6. Configure GitHub Secrets
+## 6. GitHub Actions Workflow (Cron Job)
+
+This workflow runs your pipeline on a schedule using your self-hosted runner.
+Ensure the DESTINATION__POSTGRES credentials match the credentials in your database, found in this area:
+
+<img width="640" height="424" alt="Screenshot 2025-10-29 at 09 58 51" src="https://github.com/user-attachments/assets/1e04867f-92c4-4767-a1b5-2a2206be387d" />
+
+
+Create a file at `.github/workflows/shopify_pipeline.yml`:
+
+```yaml
+name: Run Shopify DLT Pipeline
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"  # Runs every 5 minutes
+  workflow_dispatch:        # Allow manual runs
+
+env:
+  DESTINATION__POSTGRES__CREDENTIALS__DATABASE: database name
+  DESTINATION__POSTGRES__CREDENTIALS__USERNAME: doadmin
+  DESTINATION__POSTGRES__CREDENTIALS__HOST: your-db-host.ondigitalocean.com
+  DESTINATION__POSTGRES__CREDENTIALS__PORT: "25060"
+  SOURCES__SHOPIFY_DLT__SHOP_URL: "https://your-shop-name.myshopify.com"
+  SOURCES__SHOPIFY_DLT__PRIVATE_APP_PASSWORD: ${{ secrets.SOURCES__SHOPIFY_DLT__PRIVATE_APP_PASSWORD }}
+  DESTINATION__POSTGRES__CREDENTIALS__PASSWORD: ${{ secrets.DESTINATION__POSTGRES__CREDENTIALS__PASSWORD }}
+
+jobs:
+  run_pipeline:
+    runs-on: [self-hosted, Linux, X64, staging, shopify]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Python venv
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3.13-venv
+
+      - name: Set up Python and install dependencies
+        run: |
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run DLT pipeline
+        run: |
+          source venv/bin/activate
+          python shopify_dlt_pipeline.py
+```
+
+---
+
+
+## 7. Configure GitHub Secrets
 
 To allow **GitHub Actions** to access your Shopify and database credentials, add the following secrets.
 
@@ -171,38 +226,6 @@ Add the same secrets
 |--------------|-------------|
 | `SOURCES__SHOPIFY_DLT__PRIVATE_APP_PASSWORD` | Shopify Admin API token |
 | `DESTINATION__POSTGRES__CREDENTIALS__PASSWORD` | DigitalOcean PostgreSQL password |
-
----
-
-## 7. DigitalOcean Droplet Setup
-
-Your GitHub Action runs on a **self-hosted runner** installed on a DigitalOcean droplet.
-
-### Create and configure a new user
-
-Inside your droplet:
-
-```bash
-# Create a new user
-adduser new_user
-
-# Add to sudo group
-usermod -aG sudo new_user
-
-# Switch to the new user
-su - new_user
-
-# Allow passwordless sudo
-sudo visudo
-```
-
-Add this line:
-```
-new_user ALL=(ALL) NOPASSWD:ALL
-new_user ALL=(ALL) NOPASSWD: /usr/bin/apt-get
-```
-
-Save and exit (`Ctrl + X`).
 
 ---
 
@@ -300,60 +323,6 @@ nc -zv your-db-host.ondigitalocean.com 25060
 
 ---
 
-## 10. GitHub Actions Workflow (Cron Job)
-
-This workflow runs your pipeline on a schedule using your self-hosted runner.
-Ensure the DESTINATION__POSTGRES credentials match the credentials in your database, found in this area:
-
-<img width="640" height="424" alt="Screenshot 2025-10-29 at 09 58 51" src="https://github.com/user-attachments/assets/1e04867f-92c4-4767-a1b5-2a2206be387d" />
-
-
-Create a file at `.github/workflows/shopify_pipeline.yml`:
-
-```yaml
-name: Run Shopify DLT Pipeline
-
-on:
-  schedule:
-    - cron: "*/5 * * * *"  # Runs every 5 minutes
-  workflow_dispatch:        # Allow manual runs
-
-env:
-  DESTINATION__POSTGRES__CREDENTIALS__DATABASE: database name
-  DESTINATION__POSTGRES__CREDENTIALS__USERNAME: doadmin
-  DESTINATION__POSTGRES__CREDENTIALS__HOST: your-db-host.ondigitalocean.com
-  DESTINATION__POSTGRES__CREDENTIALS__PORT: "25060"
-  SOURCES__SHOPIFY_DLT__SHOP_URL: "https://your-shop-name.myshopify.com"
-  SOURCES__SHOPIFY_DLT__PRIVATE_APP_PASSWORD: ${{ secrets.SOURCES__SHOPIFY_DLT__PRIVATE_APP_PASSWORD }}
-  DESTINATION__POSTGRES__CREDENTIALS__PASSWORD: ${{ secrets.DESTINATION__POSTGRES__CREDENTIALS__PASSWORD }}
-
-jobs:
-  run_pipeline:
-    runs-on: [self-hosted, Linux, X64, staging, shopify]
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Install Python venv
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y python3.13-venv
-
-      - name: Set up Python and install dependencies
-        run: |
-          python3 -m venv venv
-          source venv/bin/activate
-          pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Run DLT pipeline
-        run: |
-          source venv/bin/activate
-          python shopify_dlt_pipeline.py
-```
-
----
-
 ### How to run it
 
 1. Start your self-hosted runner on the server (`sudo ./svc.sh start`).
@@ -363,7 +332,7 @@ jobs:
 
 ---
 
-## 11. Choosing the Right Pipeline Function
+## 10. Choosing the Right Pipeline Function
 
 The pipeline script contains **two functions** for different stages of data loading.
 
@@ -397,7 +366,7 @@ then comment it out and switch to `load_all_resources()` for ongoing scheduled r
 
 ---
 
-## 12. Troubleshooting
+## 11. Troubleshooting
 
 | Issue | Likely Cause | Fix |
 |-------|---------------|-----|
@@ -409,7 +378,7 @@ then comment it out and switch to `load_all_resources()` for ongoing scheduled r
 
 ---
 
-## 13. Maintenance Tips
+## 12. Maintenance Tips
 
 -  Never commit `.dlt/secrets.toml`
 -  Rotate Shopify tokens periodically
@@ -422,7 +391,7 @@ then comment it out and switch to `load_all_resources()` for ongoing scheduled r
 
 ---
 
-## 14. References
+## 13. References
 
 - [DLT Shopify Source Docs](https://dlthub.com/docs/dlt-ecosystem/sources/shopify)
 - [DLT Python Quickstart](https://dlthub.com/docs/getting-started/quickstart)
