@@ -88,13 +88,14 @@ uv pip install -r requirements.txt
 4. Under **Configuration**, click **Configure** under *Admin API integration*.
 5. Enable **read access** for these scopes (and any others that may be required):
    - `read_products`
+   - `read_product_listings`
    - `read_orders`
+   - `read_draft_orders`
    - `read_customers`
    - `read_inventory`
    - `read_locations`
    - `read_metaobjects`
    - `read_metaobjct_definitions`
-   - `read_product_listings`
    - `read_content`
   
 6. Click **Save** → **Install app → Confirm**.
