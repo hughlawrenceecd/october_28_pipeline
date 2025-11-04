@@ -390,14 +390,6 @@ then comment it out and switch to `load_all_resources()` for ongoing scheduled r
   ```
 -  Verify your DigitalOcean database “Trusted Sources” list includes your runner’s IP
 
----
-
-## 13. References
-
-- [DLT Shopify Source Docs](https://dlthub.com/docs/dlt-ecosystem/sources/shopify)
-- [DLT Python Quickstart](https://dlthub.com/docs/getting-started/quickstart)
-- [Shopify Admin API Scopes](https://shopify.dev/docs/api/usage/access-scopes)
-- [Shopify Partner API Reference](https://shopify.dev/docs/api/partner)
-- [GitHub Self-Hosted Runner Docs](https://docs.github.com/en/actions/hosting-your-own-runners)
+For more information, see the [Wiki](https://github.com/hughlawrenceecd/october_28_pipeline/wiki)
 
 ---
